@@ -1,0 +1,42 @@
+
+#ifndef OTHER_LIB_STATIC_EXPORT_H
+#define OTHER_LIB_STATIC_EXPORT_H
+
+#ifdef OTHER_LIB_STATIC_STATIC_DEFINE
+#  define OTHER_LIB_STATIC_EXPORT
+#  define OTHER_LIB_STATIC_NO_EXPORT
+#else
+#  ifndef OTHER_LIB_STATIC_EXPORT
+#    ifdef other_lib_static_EXPORTS
+        /* We are building this library */
+#      define OTHER_LIB_STATIC_EXPORT 
+#    else
+        /* We are using this library */
+#      define OTHER_LIB_STATIC_EXPORT 
+#    endif
+#  endif
+
+#  ifndef OTHER_LIB_STATIC_NO_EXPORT
+#    define OTHER_LIB_STATIC_NO_EXPORT 
+#  endif
+#endif
+
+#ifndef OTHER_LIB_STATIC_DEPRECATED
+#  define OTHER_LIB_STATIC_DEPRECATED __attribute__ ((__deprecated__))
+#endif
+
+#ifndef OTHER_LIB_STATIC_DEPRECATED_EXPORT
+#  define OTHER_LIB_STATIC_DEPRECATED_EXPORT OTHER_LIB_STATIC_EXPORT OTHER_LIB_STATIC_DEPRECATED
+#endif
+
+#ifndef OTHER_LIB_STATIC_DEPRECATED_NO_EXPORT
+#  define OTHER_LIB_STATIC_DEPRECATED_NO_EXPORT OTHER_LIB_STATIC_NO_EXPORT OTHER_LIB_STATIC_DEPRECATED
+#endif
+
+#if 0 /* DEFINE_NO_DEPRECATED */
+#  ifndef OTHER_LIB_STATIC_NO_DEPRECATED
+#    define OTHER_LIB_STATIC_NO_DEPRECATED
+#  endif
+#endif
+
+#endif /* OTHER_LIB_STATIC_EXPORT_H */
