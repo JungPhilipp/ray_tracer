@@ -24,7 +24,9 @@ endif()
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 add_compile_options(-Wall -Wextra -Wpedantic)
 
+find_package(OpenMP REQUIRED)
 
 add_executable(main main.cpp)
+target_link_libraries(main PRIVATE OpenMP::OpenMP_CXX)
 
 

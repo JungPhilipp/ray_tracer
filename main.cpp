@@ -240,10 +240,9 @@ main(int argc, char* argv[]) -> int
 
     constexpr auto cx = Vec{ width * .5135 / height };
     const auto cy = (cx % cam.direction).normalize() * .5135;
-    auto r = Vec{};
     auto c = std::vector<Vec>(width * height);
 
-#pragma omp parallel for schedule(dynamic, 1) private(r) // OpenMP
+#pragma omp parallel for schedule(dynamic, 1) // OpenMP
     for (int y = 0; y < height; y++)
     { // Loop over image rows
         fprintf(
@@ -252,8 +251,9 @@ main(int argc, char* argv[]) -> int
              x++) // Loop cols
             for (int sy = 0, i = (height - y - 1) * width + x; sy < 2;
                  sy++) // 2x2 subpixel rows
-                for (int sx = 0; sx < 2; sx++, r = Vec())
+                for (int sx = 0; sx < 2; sx++)
                 { // 2x2 subpixel cols
+                    auto r = Vec{};
                     for (int s = 0; s < samples; s++)
                     {
                         const auto r1 = 2 * erand48(Xi),
