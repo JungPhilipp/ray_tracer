@@ -73,5 +73,6 @@ _deps
 !.vscode/*.code-snippets
 
 build
-
+.vscode
+.cache
 # End of https://www.toptal.com/developers/gitignore/api/c++,cmake,visualstudiocode
