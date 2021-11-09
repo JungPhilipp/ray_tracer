@@ -25,12 +25,8 @@ struct Vec
 };
 struct Ray
 {
-    Vec o, d;
-    Ray(Vec o_, Vec d_)
-      : o(o_)
-      , d(d_)
-    {
-    }
+    Vec orientation;
+    Vec direction;
 };
 enum class Refl_t
 {
@@ -40,21 +36,16 @@ enum class Refl_t
 }; // material types, used in radiance()
 struct Sphere
 {
-    double rad;  // radius
-    Vec p, e, c; // position, emission, color
-    Refl_t refl; // reflection type (DIFFuse,Refl_t::SPECular,Refl_t::REFRactive)
-    Sphere(double rad_, Vec p_, Vec e_, Vec c_, Refl_t refl_)
-      : rad(rad_)
-      , p(p_)
-      , e(e_)
-      , c(c_)
-      , refl(refl_)
-    {
-    }
+    double radius;
+    Vec position, emission, color;
+    Refl_t reflection;
+
     double intersect(const Ray& r) const
-    {                     // returns distance, 0 if nohit
-        Vec op = p - r.o; // Solve t^2*d.d + 2*t*(o-p).d + (o-p).(o-p)-R^2 = 0
-        double t, eps = 1e-4, b = op.dot(r.d), det = b * b - op.dot(op) + rad * rad;
+    { // returns distance, 0 if nohit
+        Vec op =
+          position - r.orientation; // Solve t^2*d.d + 2*t*(o-p).d + (o-p).(o-p)-R^2 = 0
+        double t, eps = 1e-4, b = op.dot(r.direction),
+                  det = b * b - op.dot(op) + radius * radius;
         if (det < 0)
             return 0;
         else
@@ -64,31 +55,47 @@ struct Sphere
 };
 Sphere spheres[] = {
     // Scene: radius, position, emission, color, material
-    Sphere(1e5,
-           Vec{ 1e5 + 1, 40.8, 81.6 },
-           Vec{},
-           Vec{ .75, .25, .25 },
-           Refl_t::DIFF), // Left
-    Sphere(1e5,
-           Vec{ -1e5 + 99, 40.8, 81.6 },
-           Vec{},
-           Vec{ .25, .25, .75 },
-           Refl_t::DIFF),                                                         // Rght
-    Sphere(1e5, Vec{ 50, 40.8, 1e5 }, Vec(), Vec{ .75, .75, .75 }, Refl_t::DIFF), // Back
-    Sphere(1e5, Vec{ 50, 40.8, -1e5 + 170 }, Vec{}, Vec(), Refl_t::DIFF),         // Frnt
-    Sphere(1e5, Vec{ 50, 1e5, 81.6 }, Vec(), Vec{ .75, .75, .75 }, Refl_t::DIFF), // Botm
-    Sphere(1e5,
-           Vec{ 50, -1e5 + 81.6, 81.6 },
-           Vec{},
-           Vec{ .75, .75, .75 },
-           Refl_t::DIFF),                                                          // Top
-    Sphere(16.5, Vec{ 27, 16.5, 47 }, Vec{}, Vec{ 1, 1, 1 } * .999, Refl_t::SPEC), // Mirr
-    Sphere(16.5, Vec{ 73, 16.5, 78 }, Vec{}, Vec{ 1, 1, 1 } * .999, Refl_t::REFR), // Glas
-    Sphere(600,
-           Vec{ 50, 681.6 - .27, 81.6 },
-           Vec{ 12, 12, 12 },
-           Vec(),
-           Refl_t::DIFF) // Lite
+    Sphere{ 1e5,
+            Vec{ 1e5 + 1, 40.8, 81.6 },
+            Vec{},
+            Vec{ .75, .25, .25 },
+            Refl_t::DIFF }, // Left
+    Sphere{ 1e5,
+            Vec{ -1e5 + 99, 40.8, 81.6 },
+            Vec{},
+            Vec{ .25, .25, .75 },
+            Refl_t::DIFF }, // Rght
+    Sphere{ 1e5,
+            Vec{ 50, 40.8, 1e5 },
+            Vec(),
+            Vec{ .75, .75, .75 },
+            Refl_t::DIFF },                                                 // Back
+    Sphere{ 1e5, Vec{ 50, 40.8, -1e5 + 170 }, Vec{}, Vec(), Refl_t::DIFF }, // Frnt
+    Sphere{ 1e5,
+            Vec{ 50, 1e5, 81.6 },
+            Vec(),
+            Vec{ .75, .75, .75 },
+            Refl_t::DIFF }, // Botm
+    Sphere{ 1e5,
+            Vec{ 50, -1e5 + 81.6, 81.6 },
+            Vec{},
+            Vec{ .75, .75, .75 },
+            Refl_t::DIFF }, // Top
+    Sphere{ 16.5,
+            Vec{ 27, 16.5, 47 },
+            Vec{},
+            Vec{ 1, 1, 1 } * .999,
+            Refl_t::SPEC }, // Mirr
+    Sphere{ 16.5,
+            Vec{ 73, 16.5, 78 },
+            Vec{},
+            Vec{ 1, 1, 1 } * .999,
+            Refl_t::REFR }, // Glas
+    Sphere{ 600,
+            Vec{ 50, 681.6 - .27, 81.6 },
+            Vec{ 12, 12, 12 },
+            Vec(),
+            Refl_t::DIFF } // Lite
 };
 inline double
 clamp(double x)
@@ -120,48 +127,54 @@ radiance(const Ray& r, int depth, unsigned short* Xi)
     if (!intersect(r, t, id))
         return Vec();                // if miss, return black
     const Sphere& obj = spheres[id]; // the hit object
-    Vec x = r.o + r.d * t, n = (x - obj.p).norm(), nl = n.dot(r.d) < 0 ? n : n * -1,
-        f = obj.c;
+    Vec x = r.orientation + r.direction * t, n = (x - obj.position).norm(),
+        nl = n.dot(r.direction) < 0 ? n : n * -1, f = obj.color;
     double p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max refl
     if (++depth > 5)
     {
         if (erand48(Xi) < p)
             f = f * (1 / p);
         else
-            return obj.e; // R.R.
+            return obj.emission; // R.R.
     }
-    if (obj.refl == Refl_t::DIFF)
+    if (obj.reflection == Refl_t::DIFF)
     { // IdealRefl_t::DIFFUSE reflection
         double r1 = 2 * M_PI * erand48(Xi), r2 = erand48(Xi), r2s = sqrt(r2);
         Vec w = nl, u = ((fabs(w.x) > .1 ? Vec{ 0, 1 } : Vec{ 1 }) % w).norm(), v = w % u;
         Vec d = (u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1 - r2)).norm();
-        return obj.e + f.mult(radiance(Ray(x, d), depth, Xi));
+        return obj.emission + f.mult(radiance(Ray{ x, d }, depth, Xi));
     }
-    else if (obj.refl == Refl_t::SPEC) // IdealRefl_t::SPECULAR reflection
-        return obj.e + f.mult(radiance(Ray(x, r.d - n * 2 * n.dot(r.d)), depth, Xi));
-    Ray reflRay(x, r.d - n * 2 * n.dot(r.d)); // Ideal dielectricRefl_t::REFRACTION
-    bool into = n.dot(nl) > 0;                // Ray from outside going in?
-    double nc = 1, nt = 1.5, nnt = into ? nc / nt : nt / nc, ddn = r.d.dot(nl), cos2t;
+    else if (obj.reflection == Refl_t::SPEC) // IdealRefl_t::SPECULAR reflection
+        return obj.emission +
+               f.mult(
+                 radiance(Ray{ x, r.direction - n * 2 * n.dot(r.direction) }, depth, Xi));
+    Ray reflRay{
+        x, r.direction - n * 2 * n.dot(r.direction)
+    };                         // Ideal dielectricRefl_t::REFRACTION
+    bool into = n.dot(nl) > 0; // Ray from outside going in?
+    double nc = 1, nt = 1.5, nnt = into ? nc / nt : nt / nc, ddn = r.direction.dot(nl),
+           cos2t;
     if ((cos2t = 1 - nnt * nnt * (1 - ddn * ddn)) < 0) // Total internal reflection
-        return obj.e + f.mult(radiance(reflRay, depth, Xi));
-    Vec tdir = (r.d * nnt - n * ((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))).norm();
+        return obj.emission + f.mult(radiance(reflRay, depth, Xi));
+    Vec tdir =
+      (r.direction * nnt - n * ((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))).norm();
     double a = nt - nc, b = nt + nc, R0 = a * a / (b * b),
            c = 1 - (into ? -ddn : tdir.dot(n));
     double Re = R0 + (1 - R0) * c * c * c * c * c, Tr = 1 - Re, P = .25 + .5 * Re,
            RP = Re / P, TP = Tr / (1 - P);
-    return obj.e + f.mult(depth > 2
-                            ? (erand48(Xi) < P ? // Russian roulette
+    return obj.emission +
+           f.mult(depth > 2 ? (erand48(Xi) < P ? // Russian roulette
                                  radiance(reflRay, depth, Xi) * RP
-                                               : radiance(Ray(x, tdir), depth, Xi) * TP)
+                                               : radiance(Ray{ x, tdir }, depth, Xi) * TP)
                             : radiance(reflRay, depth, Xi) * Re +
-                                radiance(Ray(x, tdir), depth, Xi) * Tr);
+                                radiance(Ray{ x, tdir }, depth, Xi) * Tr);
 }
 int
 main(int argc, char* argv[])
 {
     int w = 1024, h = 768, samps = argc == 2 ? atoi(argv[1]) / 4 : 1; // # samples
-    Ray cam(Vec{ 50, 52, 295.6 }, Vec{ 0, -0.042612, -1 }.norm());    // cam pos, dir
-    Vec cx = Vec{ w * .5135 / h }, cy = (cx % cam.d).norm() * .5135, r,
+    Ray cam{ Vec{ 50, 52, 295.6 }, Vec{ 0, -0.042612, -1 }.norm() };  // cam pos, dir
+    Vec cx = Vec{ w * .5135 / h }, cy = (cx % cam.direction).norm() * .5135, r,
         *c = new Vec[w * h];
 #pragma omp parallel for schedule(dynamic, 1) private(r) // OpenMP
     for (int y = 0; y < h; y++)
@@ -178,9 +191,10 @@ main(int argc, char* argv[])
                         double r2 = 2 * erand48(Xi),
                                dy = r2 < 1 ? sqrt(r2) - 1 : 1 - sqrt(2 - r2);
                         Vec d = cx * (((sx + .5 + dx) / 2 + x) / w - .5) +
-                                cy * (((sy + .5 + dy) / 2 + y) / h - .5) + cam.d;
-                        r = r + radiance(Ray(cam.o + d * 140, d.norm()), 0, Xi) *
-                                  (1. / samps);
+                                cy * (((sy + .5 + dy) / 2 + y) / h - .5) + cam.direction;
+                        r = r +
+                            radiance(Ray{ cam.orientation + d * 140, d.norm() }, 0, Xi) *
+                              (1. / samps);
                     } // Camera rays are pushed ^^^^^ forward to start in interior
                     c[i] = c[i] + Vec{ clamp(r.x), clamp(r.y), clamp(r.z) } * .25;
                 }
