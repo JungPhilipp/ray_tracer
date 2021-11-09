@@ -28,7 +28,10 @@ struct Vec
     {
         return Vec{ x * other.x, y * other.y, z * other.z };
     }
-    constexpr Vec& norm() { return *this = *this * (1 / sqrt(x * x + y * y + z * z)); }
+    constexpr Vec& normalize()
+    {
+        return *this = *this * (1 / sqrt(x * x + y * y + z * z));
+    }
     constexpr double dot(const Vec& other) const
     {
         return x * other.x + y * other.y + z * other.z;
@@ -144,7 +147,9 @@ toInt(double x)
 constexpr bool
 intersect(const Ray& r, double& t, int& id)
 {
-    double n = sizeof(spheres) / sizeof(Sphere), d, inf = t = 1e20;
+    double n = sizeof(spheres) / sizeof(Sphere);
+    double d = 0;
+    double inf = t = 1e20;
     for (int i = int(n); i--;)
         if ((d = spheres[i].intersect(r)) && d < t)
         {
@@ -156,12 +161,12 @@ intersect(const Ray& r, double& t, int& id)
 constexpr Vec
 radiance(const Ray& r, int depth, unsigned short* Xi)
 {
-    double t;   // distance to intersection
-    int id = 0; // id of intersected object
+    double t = 0; // distance to intersection
+    int id = 0;   // id of intersected object
     if (!intersect(r, t, id))
         return Vec();                // if miss, return black
     const Sphere& obj = spheres[id]; // the hit object
-    Vec x = r.orientation + r.direction * t, n = (x - obj.position).norm(),
+    Vec x = r.orientation + r.direction * t, n = (x - obj.position).normalize(),
         nl = n.dot(r.direction) < 0 ? n : n * -1, f = obj.color;
     double p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max refl
     if (++depth > 5)
@@ -174,8 +179,9 @@ radiance(const Ray& r, int depth, unsigned short* Xi)
     if (obj.reflection == Refl_t::DIFF)
     { // IdealRefl_t::DIFFUSE reflection
         double r1 = 2 * M_PI * erand48(Xi), r2 = erand48(Xi), r2s = sqrt(r2);
-        Vec w = nl, u = ((fabs(w.x) > .1 ? Vec{ 0, 1 } : Vec{ 1 }) % w).norm(), v = w % u;
-        Vec d = (u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1 - r2)).norm();
+        Vec w = nl, u = ((fabs(w.x) > .1 ? Vec{ 0, 1 } : Vec{ 1 }) % w).normalize(),
+            v = w % u;
+        Vec d = (u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1 - r2)).normalize();
         return obj.emission + f.mult(radiance(Ray{ x, d }, depth, Xi));
     }
     else if (obj.reflection == Refl_t::SPEC) // IdealRefl_t::SPECULAR reflection
@@ -186,12 +192,15 @@ radiance(const Ray& r, int depth, unsigned short* Xi)
         x, r.direction - n * 2 * n.dot(r.direction)
     };                         // Ideal dielectricRefl_t::REFRACTION
     bool into = n.dot(nl) > 0; // Ray from outside going in?
-    double nc = 1, nt = 1.5, nnt = into ? nc / nt : nt / nc, ddn = r.direction.dot(nl),
-           cos2t;
+    double nc = 1;
+    double nt = 1.5;
+    double nnt = into ? nc / nt : nt / nc;
+    double ddn = r.direction.dot(nl);
+    double cos2t = 0;
     if ((cos2t = 1 - nnt * nnt * (1 - ddn * ddn)) < 0) // Total internal reflection
         return obj.emission + f.mult(radiance(reflRay, depth, Xi));
     Vec tdir =
-      (r.direction * nnt - n * ((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))).norm();
+      (r.direction * nnt - n * ((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))).normalize();
     double a = nt - nc, b = nt + nc, R0 = a * a / (b * b),
            c = 1 - (into ? -ddn : tdir.dot(n));
     double Re = R0 + (1 - R0) * c * c * c * c * c, Tr = 1 - Re, P = .25 + .5 * Re,
@@ -206,9 +215,9 @@ radiance(const Ray& r, int depth, unsigned short* Xi)
 int
 main(int argc, char* argv[])
 {
-    int w = 1024, h = 768, samps = argc == 2 ? atoi(argv[1]) / 4 : 1; // # samples
-    Ray cam{ Vec{ 50, 52, 295.6 }, Vec{ 0, -0.042612, -1 }.norm() };  // cam pos, dir
-    Vec cx = Vec{ w * .5135 / h }, cy = (cx % cam.direction).norm() * .5135, r,
+    int w = 1024, h = 768, samps = argc == 2 ? atoi(argv[1]) / 4 : 1;     // # samples
+    Ray cam{ Vec{ 50, 52, 295.6 }, Vec{ 0, -0.042612, -1 }.normalize() }; // cam pos, dir
+    Vec cx = Vec{ w * .5135 / h }, cy = (cx % cam.direction).normalize() * .5135, r,
         *c = new Vec[w * h];
 #pragma omp parallel for schedule(dynamic, 1) private(r) // OpenMP
     for (int y = 0; y < h; y++)
@@ -226,9 +235,9 @@ main(int argc, char* argv[])
                                dy = r2 < 1 ? sqrt(r2) - 1 : 1 - sqrt(2 - r2);
                         Vec d = cx * (((sx + .5 + dx) / 2 + x) / w - .5) +
                                 cy * (((sy + .5 + dy) / 2 + y) / h - .5) + cam.direction;
-                        r = r +
-                            radiance(Ray{ cam.orientation + d * 140, d.norm() }, 0, Xi) *
-                              (1. / samps);
+                        d.normalize();
+                        r = r + radiance(Ray{ cam.orientation + d * 140, d }, 0, Xi) *
+                                  (1. / samps);
                     } // Camera rays are pushed ^^^^^ forward to start in interior
                     c[i] = c[i] + Vec{ clamp(r.x), clamp(r.y), clamp(r.z) } * .25;
                 }
