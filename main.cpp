@@ -12,15 +12,33 @@ struct Vec
     double x = 0;
     double y = 0;
     double z = 0;
-    Vec operator+(const Vec& b) const { return Vec{ x + b.x, y + b.y, z + b.z }; }
-    Vec operator-(const Vec& b) const { return Vec{ x - b.x, y - b.y, z - b.z }; }
-    Vec operator*(double b) const { return Vec{ x * b, y * b, z * b }; }
-    Vec mult(const Vec& b) const { return Vec{ x * b.x, y * b.y, z * b.z }; }
-    Vec& norm() { return *this = *this * (1 / sqrt(x * x + y * y + z * z)); }
-    double dot(const Vec& b) const { return x * b.x + y * b.y + z * b.z; } // cross:
-    Vec operator%(Vec& b)
+    constexpr Vec operator+(const Vec& other) const
     {
-        return Vec{ y * b.z - z * b.y, z * b.x - x * b.z, x * b.y - y * b.x };
+        return Vec{ x + other.x, y + other.y, z + other.z };
+    }
+    constexpr Vec operator-(const Vec& other) const
+    {
+        return Vec{ x - other.x, y - other.y, z - other.z };
+    }
+    constexpr Vec operator*(double factor) const
+    {
+        return Vec{ x * factor, y * factor, z * factor };
+    }
+    constexpr Vec mult(const Vec& other) const
+    {
+        return Vec{ x * other.x, y * other.y, z * other.z };
+    }
+    constexpr Vec& norm() { return *this = *this * (1 / sqrt(x * x + y * y + z * z)); }
+    constexpr double dot(const Vec& other) const
+    {
+        return x * other.x + y * other.y + z * other.z;
+    }
+    // cross
+    constexpr Vec operator%(Vec& other)
+    {
+        return Vec{ y * other.z - z * other.y,
+                    z * other.x - x * other.z,
+                    x * other.y - y * other.x };
     }
 };
 struct Ray
@@ -33,27 +51,43 @@ enum class Refl_t
     DIFF,
     SPEC,
     REFR
-}; // material types, used in radiance()
+};
+
+// material types, used in radiance()
 struct Sphere
 {
     double radius;
-    Vec position, emission, color;
+    Vec position;
+    Vec emission;
+    Vec color;
     Refl_t reflection;
 
-    double intersect(const Ray& r) const
+    constexpr double intersect(const Ray& ray) const
     { // returns distance, 0 if nohit
         Vec op =
-          position - r.orientation; // Solve t^2*d.d + 2*t*(o-p).d + (o-p).(o-p)-R^2 = 0
-        double t, eps = 1e-4, b = op.dot(r.direction),
-                  det = b * b - op.dot(op) + radius * radius;
+          position - ray.orientation; // Solve t^2*d.d + 2*t*(o-p).d + (o-p).(o-p)-R^2 = 0
+        const double epsilon = 1e-4;
+        const double b = op.dot(ray.direction);
+        double det = b * b - op.dot(op) + radius * radius;
         if (det < 0)
             return 0;
         else
             det = sqrt(det);
-        return (t = b - det) > eps ? t : ((t = b + det) > eps ? t : 0);
+
+        const double t = b - det;
+        if (t > epsilon)
+            return t;
+        else
+        {
+            const double t1 = b + det;
+            if (t1 > epsilon)
+                return t1;
+            else
+                return 0;
+        }
     }
 };
-Sphere spheres[] = {
+constexpr Sphere spheres[] = {
     // Scene: radius, position, emission, color, material
     Sphere{ 1e5,
             Vec{ 1e5 + 1, 40.8, 81.6 },
@@ -97,17 +131,17 @@ Sphere spheres[] = {
             Vec(),
             Refl_t::DIFF } // Lite
 };
-inline double
+constexpr double
 clamp(double x)
 {
     return x < 0 ? 0 : x > 1 ? 1 : x;
 }
-inline int
+constexpr int
 toInt(double x)
 {
     return int(pow(clamp(x), 1 / 2.2) * 255 + .5);
 }
-inline bool
+constexpr bool
 intersect(const Ray& r, double& t, int& id)
 {
     double n = sizeof(spheres) / sizeof(Sphere), d, inf = t = 1e20;
@@ -119,7 +153,7 @@ intersect(const Ray& r, double& t, int& id)
         }
     return t < inf;
 }
-Vec
+constexpr Vec
 radiance(const Ray& r, int depth, unsigned short* Xi)
 {
     double t;   // distance to intersection
