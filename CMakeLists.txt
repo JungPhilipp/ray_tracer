@@ -6,7 +6,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-
+add_compile_options(-Wall -Wextra -Wpedantic)
 
 add_executable(main main.cpp)
 
